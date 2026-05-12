@@ -1,4 +1,4 @@
-.PHONY: all build test test-race cover lint clean demo help
+.PHONY: all build test test-race cover lint clean demo docker fly-deploy run help
 
 # Forcing the local toolchain because go.dev/dl downloads are blocked
 # in some environments; the published go.mod is compatible with Go 1.22+.
@@ -34,6 +34,15 @@ clean: ## Remove build artifacts
 
 demo: build ## Build then run the demo against the public HAPI FHIR sandbox
 	./bin/demo -tool get_patient_summary -patient 1234567
+
+run: build ## Run suture-server on :8080
+	./bin/suture-server
+
+docker: ## Build the Docker image
+	docker build -t suture-server:latest .
+
+fly-deploy: ## Deploy to Fly.io (requires `fly` CLI and `fly auth login`)
+	fly deploy
 
 help: ## Print this help
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*##/ { printf "  %-15s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)

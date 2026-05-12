@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/vinodhalaharvi/suture/internal/fhir"
-	"github.com/vinodhalaharvi/suture/internal/sharp"
+	"github.com/vinodhalaharvi/suture/internal/fhircontext"
 )
 
 func fakeEncounterServer(t *testing.T, count int) *httptest.Server {
@@ -58,7 +58,7 @@ func TestChartReviewArrow_HappyPath(t *testing.T) {
 	defer srv.Close()
 
 	arrow := ChartReviewArrow(fhir.NewClient())
-	out, err := arrow(sharpCtx(srv.URL), ChartReviewIn{Limit: 5})
+	out, err := arrow(fhirCtx(srv.URL), ChartReviewIn{Limit: 5})
 	if err != nil {
 		t.Fatalf("arrow: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestChartReviewArrow_DefaultLimit(t *testing.T) {
 	srv := fakeEncounterServer(t, 3)
 	defer srv.Close()
 	arrow := ChartReviewArrow(fhir.NewClient())
-	out, err := arrow(sharpCtx(srv.URL), ChartReviewIn{}) // no limit
+	out, err := arrow(fhirCtx(srv.URL), ChartReviewIn{}) // no limit
 	if err != nil {
 		t.Fatalf("arrow: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestChartReviewArrow_NoEncounters(t *testing.T) {
 	}))
 	defer srv.Close()
 	arrow := ChartReviewArrow(fhir.NewClient())
-	out, err := arrow(sharpCtx(srv.URL), ChartReviewIn{Limit: 5})
+	out, err := arrow(fhirCtx(srv.URL), ChartReviewIn{Limit: 5})
 	if err != nil {
 		t.Fatalf("arrow: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestListEncounters_AuthHeader(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	ctx := sharp.Inject(context.Background(), sharp.Context{
+	ctx := fhircontext.Inject(context.Background(), fhircontext.Context{
 		PatientID: "p", FHIRBase: srv.URL, Token: "secret",
 	})
 	_, err := listEncounters(fhir.NewClient())(ctx, ChartReviewIn{Limit: 1})

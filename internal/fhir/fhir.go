@@ -17,7 +17,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/vinodhalaharvi/suture/internal/sharp"
+	"github.com/vinodhalaharvi/suture/internal/fhircontext"
 	"github.com/vinodhalaharvi/weft/weft"
 )
 
@@ -64,11 +64,11 @@ func (c *Client) get(ctx context.Context, path string, query url.Values) ([]byte
 // GetRaw is the public form of get — used by ad-hoc tool arrows that
 // need to hit endpoints we haven't typed yet (e.g. /Encounter).
 func (c *Client) GetRaw(ctx context.Context, path string, query url.Values) ([]byte, error) {
-	s, ok := sharp.From(ctx)
+	s, ok := fhircontext.From(ctx)
 	if !ok {
-		return nil, fmt.Errorf("fhir: no SHARP context")
+		return nil, fmt.Errorf("fhir: no FHIR context")
 	}
-	if err := s.Validate(); err != nil {
+	if err := s.RequirePatient(); err != nil {
 		return nil, err
 	}
 
@@ -82,7 +82,12 @@ func (c *Client) GetRaw(ctx context.Context, path string, query url.Values) ([]b
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/fhir+json")
-	req.Header.Set("Authorization", "Bearer "+s.Token)
+	// Per the Prompt Opinion FHIR context spec, the token is optional —
+	// some FHIR servers don't require authorization. Only attach the
+	// Bearer header when we have a token.
+	if s.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+s.Token)
+	}
 
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
@@ -113,7 +118,7 @@ func truncate(s string, n int) string {
 // identified by SHARP context.
 func (c *Client) ReadPatient() weft.Arrow[struct{}, Resource] {
 	return func(ctx context.Context, _ struct{}) (Resource, error) {
-		s, _ := sharp.From(ctx)
+		s, _ := fhircontext.From(ctx)
 		body, err := c.get(ctx, "/Patient/"+s.PatientID, nil)
 		if err != nil {
 			return nil, err
@@ -134,7 +139,7 @@ type ConditionFilter struct {
 
 func (c *Client) SearchConditions() weft.Arrow[ConditionFilter, Bundle] {
 	return func(ctx context.Context, f ConditionFilter) (Bundle, error) {
-		s, _ := sharp.From(ctx)
+		s, _ := fhircontext.From(ctx)
 		q := url.Values{}
 		q.Set("patient", s.PatientID)
 		if f.ClinicalStatus != "" {
@@ -160,7 +165,7 @@ type ObservationFilter struct {
 
 func (c *Client) SearchObservations() weft.Arrow[ObservationFilter, Bundle] {
 	return func(ctx context.Context, f ObservationFilter) (Bundle, error) {
-		s, _ := sharp.From(ctx)
+		s, _ := fhircontext.From(ctx)
 		q := url.Values{}
 		q.Set("patient", s.PatientID)
 		if f.Code != "" {

@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/vinodhalaharvi/suture/internal/fhir"
+	"github.com/vinodhalaharvi/suture/internal/fhircontext"
 	"github.com/vinodhalaharvi/suture/internal/mcp"
-	"github.com/vinodhalaharvi/suture/internal/sharp"
 )
 
 // fakeFHIRServer returns realistic FHIR responses for tool tests.
@@ -48,8 +48,8 @@ func fakeFHIRServer(t *testing.T) *httptest.Server {
 	}))
 }
 
-func sharpCtx(base string) context.Context {
-	return sharp.Inject(context.Background(), sharp.Context{
+func fhirCtx(base string) context.Context {
+	return fhircontext.Inject(context.Background(), fhircontext.Context{
 		PatientID: "p1",
 		FHIRBase:  base,
 		Token:     "tok",
@@ -63,7 +63,7 @@ func TestPatientSummaryArrow(t *testing.T) {
 	defer srv.Close()
 
 	arrow := PatientSummaryArrow(fhir.NewClient())
-	out, err := arrow(sharpCtx(srv.URL), PatientSummaryIn{})
+	out, err := arrow(fhirCtx(srv.URL), PatientSummaryIn{})
 	if err != nil {
 		t.Fatalf("arrow: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestCalculateScoreArrow(t *testing.T) {
 	defer srv.Close()
 
 	arrow := CalculateScoreArrow(fhir.NewClient())
-	result, err := arrow(sharpCtx(srv.URL), CHA2DS2VAScIn{})
+	result, err := arrow(fhirCtx(srv.URL), CHA2DS2VAScIn{})
 	if err != nil {
 		t.Fatalf("arrow: %v", err)
 	}
@@ -117,7 +117,7 @@ func TestGetComponentsArrow(t *testing.T) {
 	defer srv.Close()
 
 	arrow := GetComponentsArrow(fhir.NewClient())
-	c, err := arrow(sharpCtx(srv.URL), CHA2DS2VAScIn{})
+	c, err := arrow(fhirCtx(srv.URL), CHA2DS2VAScIn{})
 	if err != nil {
 		t.Fatalf("arrow: %v", err)
 	}
@@ -187,37 +187,41 @@ func TestComputeScore_RiskBands(t *testing.T) {
 
 // === SHARP middleware tests ===
 
-func TestRunWithSharp_MissingContext(t *testing.T) {
-	handler := runWithSharp(func(ctx context.Context, _ json.RawMessage) (any, error) {
+func TestRunWithFHIRContext_MissingContext(t *testing.T) {
+	handler := runWithFHIRContext(func(ctx context.Context, _ json.RawMessage) (any, error) {
 		return "ok", nil
 	})
+	// No headers stashed in ctx — should fail RequirePatient.
 	_, err := handler(context.Background(), nil, nil)
 	if err == nil {
-		t.Error("expected error on missing SHARP context")
+		t.Error("expected error on missing FHIR context")
 	}
 }
 
-func TestRunWithSharp_InjectsContext(t *testing.T) {
-	var sawCtx sharp.Context
-	handler := runWithSharp(func(ctx context.Context, _ json.RawMessage) (any, error) {
-		s, ok := sharp.From(ctx)
+func TestRunWithFHIRContext_InjectsContextFromHTTPHeaders(t *testing.T) {
+	var sawCtx fhircontext.Context
+	handler := runWithFHIRContext(func(ctx context.Context, _ json.RawMessage) (any, error) {
+		c, ok := fhircontext.From(ctx)
 		if !ok {
-			t.Error("SHARP not injected")
+			t.Error("FHIR context not injected")
 		}
-		sawCtx = s
+		sawCtx = c
 		return "ok", nil
 	})
-	meta := map[string]any{
-		"sharp.patient_id": "p99",
-		"sharp.fhir_base":  "https://x",
-		"sharp.token":      "t99",
+	// Simulate the HTTP transport having stashed canonical-cased headers
+	// in the context. The middleware should read them via FromHTTP.
+	headers := mcp.HTTPHeaders{
+		"X-Fhir-Server-Url":   "https://fhir.example.com",
+		"X-Fhir-Access-Token": "t99",
+		"X-Patient-Id":        "p99",
 	}
-	_, err := handler(context.Background(), nil, meta)
+	ctx := mcp.WithHTTPHeaders(context.Background(), headers)
+	_, err := handler(ctx, nil, nil)
 	if err != nil {
 		t.Fatalf("handler: %v", err)
 	}
-	if sawCtx.PatientID != "p99" {
-		t.Errorf("PatientID not injected: %+v", sawCtx)
+	if sawCtx.PatientID != "p99" || sawCtx.FHIRBase != "https://fhir.example.com" || sawCtx.Token != "t99" {
+		t.Errorf("context not propagated: %+v", sawCtx)
 	}
 }
 

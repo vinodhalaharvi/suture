@@ -120,7 +120,7 @@ func PriorAuthAgentTool(s *mcp.Server, c *fhir.Client) {
 				"required":["request"]
 			}`),
 		},
-		runWithSharp(func(ctx context.Context, args json.RawMessage) (any, error) {
+		runWithFHIRContext(func(ctx context.Context, args json.RawMessage) (any, error) {
 			if os.Getenv("ANTHROPIC_API_KEY") == "" {
 				return nil, fmt.Errorf("prior_auth_assistant: ANTHROPIC_API_KEY not set (this tool requires an LLM provider)")
 			}

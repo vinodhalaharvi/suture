@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/vinodhalaharvi/suture/internal/fhir"
+	"github.com/vinodhalaharvi/suture/internal/fhircontext"
 	"github.com/vinodhalaharvi/suture/internal/mcp"
-	"github.com/vinodhalaharvi/suture/internal/sharp"
 	"github.com/vinodhalaharvi/weft/weft"
 )
 
@@ -52,7 +52,7 @@ type EncounterRef struct {
 // FHIR search for the most recent N encounters.
 func listEncounters(c *fhir.Client) weft.Arrow[ChartReviewIn, []fhir.Resource] {
 	return func(ctx context.Context, in ChartReviewIn) ([]fhir.Resource, error) {
-		s, _ := sharp.From(ctx)
+		s, _ := fhircontext.From(ctx)
 		limit := in.Limit
 		if limit <= 0 {
 			limit = 5
@@ -176,7 +176,7 @@ func ChartReviewTool(s *mcp.Server, c *fhir.Client) {
 			Description: "Fetches the most recent N encounters in parallel and returns a timeline.",
 			InputSchema: json.RawMessage(`{"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":20}}}`),
 		},
-		runWithSharp(func(ctx context.Context, args json.RawMessage) (any, error) {
+		runWithFHIRContext(func(ctx context.Context, args json.RawMessage) (any, error) {
 			var in ChartReviewIn
 			if len(args) > 0 {
 				_ = json.Unmarshal(args, &in)

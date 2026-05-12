@@ -1,101 +1,85 @@
 %%{init: {'theme':'base','themeVariables':{'fontFamily':'Helvetica, Arial, sans-serif','primaryColor':'#eef4ff','primaryBorderColor':'#3b6fd6','lineColor':'#3b3b3b','fontSize':'14px'}}}%%
 flowchart LR
 
-%% =======================
-%% PROMPT OPINION PLATFORM
-%% =======================
-subgraph PO["Prompt Opinion Platform"]
+subgraph PO["Prompt Opinion platform"]
   direction TB
-  POMarket["Marketplace<br/>(discoverable tools & agents)"]
-  POAgent["Host Agent / Workspace<br/>(A2A + SHARP context)"]
-  POEHR["EHR Session<br/>SMART on FHIR token<br/>+ patient context"]
-  POAgent -- "invokes MCP tool" --> POBridge["SHARP Context Bridge<br/>(injects patient_id,<br/>FHIR token, scopes)"]
-  POEHR --> POBridge
-  POMarket -. "publishes / discovers" .- POAgent
+  POEHR["EHR session<br/>SMART-on-FHIR token<br/>+ patient in context"]
+  POAdmin["Configuration → MCP Servers<br/>(user authorizes SMART scopes)"]
+  POInvoker["Tool invoker<br/>(HTTP POST /mcp<br/>+ FHIR context headers)"]
+  POEHR --> POInvoker
+  POAdmin --> POInvoker
 end
 
-%% =======================
-%% YOUR GO MCP SERVER
-%% =======================
-subgraph GO["Your Go MCP Server (deployed on your infra)"]
+subgraph SUT["Suture (your deployed Go server)"]
   direction TB
 
-  subgraph TRANS["mark3labs/mcp-go — wire protocol"]
+  subgraph HTTP_LAYER["HTTP transport"]
     direction TB
-    Transport["HTTP+SSE / stdio transport<br/>JSON-RPC 2.0"]
-    Handlers["Tool registration<br/>list_tools / call_tool"]
+    HTTPHandler["POST /mcp<br/>(JSON-RPC 2.0)"]
+    InitResp["initialize response<br/>declares ai.promptopinion/fhir-context<br/>with patient/Patient.rs, patient/Condition.rs, …"]
+    HTTPHandler --> InitResp
   end
 
-  subgraph WEFT["weft — categorical composition"]
+  subgraph CONTEXT_LAYER["FHIR context middleware"]
+    direction TB
+    HeaderExtract["Read HTTP headers:<br/>X-FHIR-Server-URL<br/>X-FHIR-Access-Token<br/>X-Patient-ID"]
+    CtxInject["Inject typed fhircontext.Context<br/>into context.Context"]
+    HeaderExtract --> CtxInject
+  end
+
+  subgraph WEFT_LAYER["weft composition"]
     direction TB
     ArrowType["Arrow[A,B] = func(ctx, A) (B, error)"]
-    Compose["Compose / Pipe / Par / Sum"]
-    Apply["Apply: WithRetry · WithTimeout · WithTap"]
-    Loop["llm.Loop (agent loop combinator)"]
+    Combinators["Compose · Pipe3 · Par · Traverse · Apply"]
+    Loop["agent.Loop (Arrow[Prompt, Response])"]
   end
 
-  subgraph SHARPMW["SHARP middleware (you write this thin layer)"]
+  subgraph TOOL_LAYER["Five healthcare tools"]
     direction TB
-    CtxExtract["Extract SHARP headers<br/>patient_id, fhir_base, bearer token"]
-    CtxInject["Inject into context.Context<br/>(propagates through every Arrow)"]
-    CtxExtract --> CtxInject
+    T1["get_patient_summary<br/>Par(ReadPatient, SearchConditions) + Map"]
+    T2["calculate_cha2ds2_vasc<br/>Pipe3(fetch, extract, score)"]
+    T3["get_cha2ds2_vasc_components<br/>(reuses fetch + extract)"]
+    T4["summarize_recent_encounters<br/>Traverse(WithConcurrency(4), PartialResults)"]
+    T5["prior_auth_assistant<br/>agent.Loop over T1–T4 as bindings"]
   end
 
-  subgraph TOOLS["Your healthcare tools (each an Arrow)"]
-    direction TB
-    T1["fhirRead :: Arrow[Query, Bundle]<br/>GET {base}/Patient/{id}/...<br/>Bearer = SHARP token"]
-    T2["riskScore :: Arrow[Bundle, Score]<br/>pure / model call"]
-    T3["llmSummarize :: Arrow[Bundle, Narrative]<br/>llm.Claude(...) wrapped"]
-    Composed["composedTool = Pipe3(fhirRead, riskScore, llmSummarize)<br/>+ WithRetry + WithTimeout"]
-    T1 --> Composed
-    T2 --> Composed
-    T3 --> Composed
-  end
-
-  ServeAsTool["mcp.ServeAsTool[In,Out]<br/>(lift Arrow → MCP tool)"]
-
-  Handlers --> CtxExtract
-  CtxInject --> Composed
-  Composed --> ServeAsTool
-  ServeAsTool --> Handlers
-  Apply -. wraps .- Composed
-  Compose -. builds .- Composed
+  HTTPHandler --> HeaderExtract
+  CtxInject --> T1
+  CtxInject --> T2
+  CtxInject --> T3
+  CtxInject --> T4
+  CtxInject --> T5
+  Combinators -. composes .- T1
+  Combinators -. composes .- T2
+  Combinators -. composes .- T3
+  Combinators -. composes .- T4
+  Loop -. drives .- T5
 end
 
-%% =======================
-%% EXTERNAL FHIR
-%% =======================
-FHIR[("FHIR Server<br/>(EHR sandbox or real)")]
+FHIR[("FHIR server<br/>(EHR sandbox or real)")]
+LLM[("Claude API<br/>via weft/llm<br/>(only for T5)")]
 
-%% =======================
-%% FLOWS
-%% =======================
-POBridge ==> |"MCP call_tool<br/>+ SHARP headers"| Transport
-Transport --> Handlers
-T1 ==> |"authenticated FHIR request"| FHIR
-FHIR ==> T1
-ServeAsTool ==> |"MCP response"| Transport
-Transport ==> |"result"| POBridge
-POBridge ==> POAgent
+POInvoker ==> |"HTTP POST /mcp<br/>+ headers"| HTTPHandler
+T1 ==> |"GET Authorization: Bearer …"| FHIR
+T2 ==> FHIR
+T4 ==> FHIR
+T5 -.-> |"tool dispatch"| T1
+T5 -.-> |"tool dispatch"| T2
+T5 -.-> |"tool dispatch"| T4
+T5 ==> |"messages + tool specs"| LLM
+LLM ==> |"text or tool_use"| T5
+HTTPHandler ==> |"JSON-RPC response"| POInvoker
 
-%% =======================
-%% PUBLISHING PATH
-%% =======================
-GO -. "register manifest + endpoint" .-> POMarket
-
-%% =======================
-%% STYLES
-%% =======================
 classDef po fill:#eaf2ff,stroke:#3b6fd6,color:#0b2545,stroke-width:1.2px
-classDef go fill:#fff7ea,stroke:#c97a1b,color:#3a2200,stroke-width:1.2px
+classDef http fill:#fff7ea,stroke:#c97a1b,color:#3a2200,stroke-width:1.2px
+classDef ctx fill:#e7f7ee,stroke:#1f8a4c,color:#0a3a1f,stroke-width:1.2px
 classDef weft fill:#efe9ff,stroke:#6a4bd8,color:#221554,stroke-width:1.2px
-classDef sharp fill:#e7f7ee,stroke:#1f8a4c,color:#0a3a1f,stroke-width:1.2px
 classDef tools fill:#fdecec,stroke:#c0392b,color:#3a0a0a,stroke-width:1.2px
-classDef fhir fill:#222,stroke:#000,color:#fff,stroke-width:1.2px
+classDef ext fill:#222,stroke:#000,color:#fff,stroke-width:1.2px
 
-class POMarket,POAgent,POEHR,POBridge po
-class Transport,Handlers go
-class ArrowType,Compose,Apply,Loop,ServeAsTool weft
-class CtxExtract,CtxInject sharp
-class T1,T2,T3,Composed tools
-class FHIR fhir
+class POEHR,POAdmin,POInvoker po
+class HTTPHandler,InitResp http
+class HeaderExtract,CtxInject ctx
+class ArrowType,Combinators,Loop weft
+class T1,T2,T3,T4,T5 tools
+class FHIR,LLM ext

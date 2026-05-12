@@ -172,7 +172,7 @@ func CHA2DS2VAScTools(s *mcp.Server, c *fhir.Client) {
 			Description: "Compute the CHA2DS2-VASc stroke-risk score for the SHARP patient.",
 			InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
 		},
-		runWithSharp(func(ctx context.Context, _ json.RawMessage) (any, error) {
+		runWithFHIRContext(func(ctx context.Context, _ json.RawMessage) (any, error) {
 			return score(ctx, CHA2DS2VAScIn{})
 		}),
 	)
@@ -184,7 +184,7 @@ func CHA2DS2VAScTools(s *mcp.Server, c *fhir.Client) {
 			Description: "Return the per-criterion breakdown without computing the total.",
 			InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
 		},
-		runWithSharp(func(ctx context.Context, _ json.RawMessage) (any, error) {
+		runWithFHIRContext(func(ctx context.Context, _ json.RawMessage) (any, error) {
 			return comp(ctx, CHA2DS2VAScIn{})
 		}),
 	)

@@ -62,6 +62,19 @@ type Server struct {
 	mu       sync.RWMutex
 	tools    []Tool
 	handlers map[string]ToolHandler
+
+	// fhirScopes is the list of SMART-on-FHIR scopes this server
+	// requests under the Prompt Opinion FHIR context extension.
+	// Declared in the response to "initialize" under
+	//   capabilities.extensions["ai.promptopinion/fhir-context"].
+	// See https://docs.promptopinion.ai/fhir-context/mcp-fhir-context
+	fhirScopes []FHIRScope
+}
+
+// FHIRScope is a single SMART-on-FHIR scope the server requests.
+type FHIRScope struct {
+	Name     string `json:"name"`               // e.g. "patient/Patient.rs"
+	Required bool   `json:"required,omitempty"` // optional scopes default to false
 }
 
 // NewServer creates a server with the given name/version (returned in initialize).
@@ -71,6 +84,25 @@ func NewServer(name, version string) *Server {
 		version:  version,
 		handlers: make(map[string]ToolHandler),
 	}
+}
+
+// RequestFHIRScope declares a SMART-on-FHIR scope this server needs.
+// Call this before Serve. The platform displays the requested scopes
+// to the user during MCP server registration; the user authorizes
+// (or denies) each non-required scope. Required scopes cannot be
+// unchecked — the user's only option is to skip adding the server.
+//
+// Common scope names:
+//
+//	patient/Patient.rs       — read/search the current patient
+//	patient/Condition.rs     — read/search conditions for the patient
+//	patient/Observation.rs   — read/search observations (labs, vitals)
+//	patient/Encounter.rs     — read/search encounters
+//	offline_access           — receive a refresh token for background work
+func (s *Server) RequestFHIRScope(name string, required bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.fhirScopes = append(s.fhirScopes, FHIRScope{Name: name, Required: required})
 }
 
 // AddTool registers a tool. Safe to call before Serve.
@@ -142,11 +174,27 @@ func (s *Server) handle(ctx context.Context, req request) response {
 
 	switch req.Method {
 	case "initialize":
+		s.mu.RLock()
+		scopes := make([]FHIRScope, len(s.fhirScopes))
+		copy(scopes, s.fhirScopes)
+		s.mu.RUnlock()
+
+		capabilities := map[string]any{
+			"tools": map[string]any{},
+		}
+		// Only advertise the FHIR-context extension if the server has
+		// requested scopes. Servers that don't need patient data won't
+		// trigger Prompt Opinion's authorization flow.
+		if len(scopes) > 0 {
+			capabilities["extensions"] = map[string]any{
+				"ai.promptopinion/fhir-context": map[string]any{
+					"scopes": scopes,
+				},
+			}
+		}
 		result, _ := json.Marshal(map[string]any{
 			"protocolVersion": "2024-11-05",
-			"capabilities": map[string]any{
-				"tools": map[string]any{},
-			},
+			"capabilities":    capabilities,
 			"serverInfo": map[string]any{
 				"name":    s.name,
 				"version": s.version,

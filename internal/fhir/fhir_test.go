@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vinodhalaharvi/suture/internal/sharp"
+	"github.com/vinodhalaharvi/suture/internal/fhircontext"
 )
 
 // fakeServer returns an httptest.Server that responds to the FHIR
@@ -62,7 +62,7 @@ func newFakeServer(t *testing.T) *fakeServer {
 }
 
 func withSharp(ctx context.Context, base string) context.Context {
-	return sharp.Inject(ctx, sharp.Context{
+	return fhircontext.Inject(ctx, fhircontext.Context{
 		PatientID: "p1",
 		FHIRBase:  base,
 		Token:     "test-token",

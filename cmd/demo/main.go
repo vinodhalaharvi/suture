@@ -23,7 +23,7 @@ import (
 	"os"
 
 	"github.com/vinodhalaharvi/suture/internal/fhir"
-	"github.com/vinodhalaharvi/suture/internal/sharp"
+	"github.com/vinodhalaharvi/suture/internal/fhircontext"
 	"github.com/vinodhalaharvi/suture/pkg/tools"
 )
 
@@ -31,7 +31,7 @@ func main() {
 	tool := flag.String("tool", "get_patient_summary", "tool to invoke")
 	patient := flag.String("patient", "", "FHIR patient ID")
 	fhirBase := flag.String("fhir", "https://hapi.fhir.org/baseR4", "FHIR base URL")
-	token := flag.String("token", "dev", "bearer token")
+	token := flag.String("token", "", "bearer token (optional — some FHIR sandboxes don't require one)")
 	limit := flag.Int("limit", 5, "limit (for chart review)")
 	request := flag.String("request", "", "free-text request (for prior_auth_assistant)")
 	flag.Parse()
@@ -41,7 +41,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	ctx := sharp.Inject(context.Background(), sharp.Context{
+	ctx := fhircontext.Inject(context.Background(), fhircontext.Context{
 		PatientID: *patient,
 		FHIRBase:  *fhirBase,
 		Token:     *token,

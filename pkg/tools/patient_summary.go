@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 
 	"github.com/vinodhalaharvi/suture/internal/fhir"
+	"github.com/vinodhalaharvi/suture/internal/fhircontext"
 	"github.com/vinodhalaharvi/suture/internal/mcp"
-	"github.com/vinodhalaharvi/suture/internal/sharp"
 	"github.com/vinodhalaharvi/weft/weft"
 )
 
@@ -72,24 +72,29 @@ func PatientSummaryTool(s *mcp.Server, c *fhir.Client) {
 			Description: "Returns demographics and active problem list for the patient in SHARP context.",
 			InputSchema: json.RawMessage(`{"type":"object","properties":{}}`),
 		},
-		runWithSharp(func(ctx context.Context, _ json.RawMessage) (any, error) {
+		runWithFHIRContext(func(ctx context.Context, _ json.RawMessage) (any, error) {
 			return arrow(ctx, PatientSummaryIn{})
 		}),
 	)
 }
 
-// runWithSharp is the SHARP middleware. It extracts SHARP fields from
-// the MCP request _meta, validates them, injects into context, and
-// then runs the handler. Errors from missing SHARP come back as
-// well-typed isError:true results.
-func runWithSharp(
+// runWithFHIRContext is the per-tool middleware that extracts FHIR
+// context from the HTTP headers Prompt Opinion attached to the
+// tools/call request, validates that a patient is in scope, and
+// injects a typed fhircontext.Context into the request context for
+// the downstream arrow.
+//
+// If headers are absent (e.g. the server was driven via stdio for
+// local debugging), the middleware returns a clean error rather than
+// silently making FHIR calls against the wrong server.
+func runWithFHIRContext(
 	h func(ctx context.Context, args json.RawMessage) (any, error),
 ) mcp.ToolHandler {
 	return func(ctx context.Context, args json.RawMessage, meta map[string]any) (any, error) {
-		s := sharp.FromMeta(meta)
-		if err := s.Validate(); err != nil {
+		c := fhircontext.FromHTTP(ctx)
+		if err := c.RequirePatient(); err != nil {
 			return nil, err
 		}
-		return h(sharp.Inject(ctx, s), args)
+		return h(fhircontext.Inject(ctx, c), args)
 	}
 }
