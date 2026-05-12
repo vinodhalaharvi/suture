@@ -300,6 +300,24 @@
             font-weight: 700;
             margin-right: 8px;
         }
+        .url-input {
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            font-family: var(--mono);
+            font-size: 11px;
+            padding: 4px 8px;
+            border-bottom: 1px dashed var(--line-strong);
+            min-width: 320px;
+            outline: none;
+            font-feature-settings: 'tnum';
+        }
+        .url-input:hover { color: var(--text); border-bottom-color: var(--text-low); }
+        .url-input:focus {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+            background: rgba(94, 234, 212, 0.03);
+        }
         .send-aside { font-size: 10px; color: var(--text-low); letter-spacing: 0.1em; text-transform: uppercase; }
 
         /* ─── trace panel ─── */
@@ -615,6 +633,20 @@
             const [error, setError] = useState(null);
             const [status, setStatus] = useState(null);
 
+            // Pick up the server URL the console binary was started with
+            // (via -server-url or SUTURE_SERVER_URL env var). Fails silently
+            // if we're being served as a plain file — the DEFAULTS kick in.
+            useEffect(() => {
+                fetch('/config.json')
+                    .then(r => r.ok ? r.json() : null)
+                    .then(cfg => {
+                        if (cfg && cfg.serverURL) {
+                            setConfig(prev => ({ ...prev, serverURL: cfg.serverURL }));
+                        }
+                    })
+                    .catch(() => {});
+            }, []);
+
             const requestBody = buildRequestBody(config.toolName, config.patientID);
 
             function update(k, v) { setConfig(prev => ({ ...prev, [k]: v })); }
@@ -782,7 +814,11 @@
                                 {running ? 'running…' : 'fire request'}
                             </button>
                             <div className="send-url">
-                                <span className="method">POST</span>{config.serverURL}
+                                <span className="method">POST</span>
+                                <input className="url-input" value={config.serverURL}
+                                       onChange={e => update('serverURL', e.target.value)}
+                                       spellCheck="false"
+                                       title="Change to point at a different suture-server (e.g. when running on a non-default port)" />
                             </div>
                             <div className="send-aside">
                                 {status && (
