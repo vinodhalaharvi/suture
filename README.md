@@ -144,6 +144,27 @@ isolated in `internal/mcp/http.go` and `internal/fhircontext`. The FHIR
 client, tool arrows, agent loop, and tests below that line are
 platform-agnostic.
 
+### Request flow (sequence diagram)
+
+For a clearer picture of what happens on the wire during a clinician's
+tool invocation, see [`docs/sequence-flow.svg`](docs/sequence-flow.svg).
+It walks through three phases:
+
+1. **One-time MCP server registration.** Prompt Opinion sends `initialize`,
+   reads the FHIR context capability extension, and shows the user a
+   SMART scope authorization screen.
+2. **A simple tool call.** `get_patient_summary` invocation showing the
+   FHIR context headers flowing in, `weft.Par` firing two parallel FHIR
+   reads, and a typed result going back through the MCP envelope.
+3. **The agent loop.** `prior_auth_assistant` running an LLM tool-use
+   loop with Claude, calling other Suture tools as bindings, returning
+   a drafted letter — all behind a single synchronous MCP request.
+
+The two architecturally interesting moments are visible in the diagram:
+the `weft.Par` parallel-FHIR fan-out (no goroutine plumbing in user
+code), and the agent loop running entirely inside a single MCP call
+with no separate workflow engine.
+
 ## Test suite
 
 ```bash
@@ -174,7 +195,8 @@ FHIR call → typed output. If that test passes, the integration is real.
 │   ├── agent/                LLM tool-use loop combinator
 │   └── tools/                the five healthcare tools
 ├── docs/
-│   └── architecture.svg      integration diagram
+│   ├── architecture.svg      static integration diagram
+│   └── sequence-flow.svg     request-flow sequence diagram (with sources)
 └── examples/                 sample MCP request bodies
 ```
 

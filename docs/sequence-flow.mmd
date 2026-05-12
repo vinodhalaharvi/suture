@@ -1,0 +1,55 @@
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'Helvetica, Arial, sans-serif','fontSize':'13px','primaryColor':'#eef4ff','primaryBorderColor':'#3b6fd6','actorBkg':'#eef4ff','actorBorder':'#3b6fd6','actorTextColor':'#0b2545','signalColor':'#3b3b3b','signalTextColor':'#0b2545','labelBoxBkgColor':'#fff7ea','labelBoxBorderColor':'#c97a1b','noteBkgColor':'#efe9ff','noteBorderColor':'#6a4bd8','noteTextColor':'#221554'}}}%%
+sequenceDiagram
+    autonumber
+    actor User as Clinician
+    participant PO as Prompt Opinion
+    participant Suture as suture-server
+    participant FHIR as FHIR sandbox
+    participant Claude as Anthropic Claude
+
+    rect rgb(245, 250, 255)
+        Note over User,Suture: Phase 1 — One-time MCP server registration
+        User->>PO: Configuration > MCP Servers, paste URL, Continue
+        PO->>Suture: POST /mcp method=initialize
+        Suture-->>PO: capabilities.extensions ai.promptopinion/fhir-context with 4 SMART scopes
+        PO-->>User: Display SMART scope authorization screen
+        User->>PO: Authorize requested scopes
+        Note right of PO: PO records this MCP server as available for the workspace
+    end
+
+    rect rgb(250, 245, 255)
+        Note over User,FHIR: Phase 2 — Clinician invokes get_patient_summary
+        User->>PO: Conversation with patient, invoke tool
+        Note over PO: PO resolves patient session, SMART token, FHIR base
+        PO->>Suture: POST /mcp method=tools/call + headers X-FHIR-Server-URL, X-FHIR-Access-Token, X-Patient-ID
+        Note over Suture: internal/mcp/http.go stashes headers into context.Context
+        Suture->>Suture: fhircontext.FromHTTP reads ctx, RequirePatient OK
+        Note over Suture: weft.Par fans out to FHIR
+        par parallel reads via weft.Par
+            Suture->>FHIR: GET /Patient/1234567 + Bearer token
+            FHIR-->>Suture: Patient resource
+        and
+            Suture->>FHIR: GET /Condition?patient=1234567&clinical-status=active
+            FHIR-->>Suture: Bundle of Conditions
+        end
+        Suture->>Suture: weft.Map merges Pair into PatientSummaryOut
+        Suture-->>PO: 200 OK content.text = patient_id, name, dob, age, gender, active_issues
+        PO-->>User: Display tool result in conversation
+    end
+
+    rect rgb(255, 245, 245)
+        Note over User,Claude: Phase 3 — Multi-step agent prior_auth_assistant
+        User->>PO: Draft prior auth for apixaban
+        PO->>Suture: POST /mcp tools/call name=prior_auth_assistant + FHIR headers
+        Suture->>Claude: messages + 3 tool specs
+        Claude-->>Suture: tool_use get_patient_summary
+        Suture->>FHIR: GET /Patient, /Condition
+        FHIR-->>Suture: bundles
+        Suture-->>Claude: tool_result + assistant turn
+        Claude-->>Suture: tool_use calculate_cha2ds2_vasc
+        Suture->>Suture: reuses cached FHIR data via arrows
+        Suture-->>Claude: tool_result score=6 band=high
+        Claude-->>Suture: final text, drafted letter citing AFib and CHA2DS2-VASc 6/high
+        Suture-->>PO: result.content.text letter and notes
+        PO-->>User: Display letter in conversation
+    end
