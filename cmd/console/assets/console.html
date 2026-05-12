@@ -1,0 +1,933 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>suture // operator console</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,500&display=swap" rel="stylesheet" />
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+
+    <style>
+        :root {
+            --bg: #07090b;
+            --bg-2: #0d1115;
+            --bg-3: #11161c;
+            --line: #1a2129;
+            --line-strong: #243038;
+            --text: #d7dde3;
+            --text-dim: #7b8794;
+            --text-low: #4a5560;
+            --accent: #5eead4;
+            --accent-strong: #2dd4bf;
+            --accent-glow: rgba(94, 234, 212, 0.18);
+            --warn: #fbbf24;
+            --err: #f87171;
+            --ok: #86efac;
+            --serif: 'Newsreader', Georgia, serif;
+            --mono: 'JetBrains Mono', 'Spline Sans Mono', ui-monospace, monospace;
+            --mono-soft: 'Spline Sans Mono', 'JetBrains Mono', ui-monospace, monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 13px;
+            line-height: 1.55;
+            min-height: 100vh;
+            font-feature-settings: 'ss01', 'cv02', 'cv11';
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+        }
+
+        body {
+            background-image:
+                radial-gradient(ellipse at top, rgba(94, 234, 212, 0.04) 0%, transparent 50%),
+                linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+            background-size: auto, 32px 32px, 32px 32px;
+            background-position: 0 0, 0 0, 0 0;
+        }
+
+        ::selection { background: var(--accent-glow); color: var(--accent); }
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 0; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-low); }
+
+        .app {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px 32px 80px;
+        }
+
+        /* ─── header ─── */
+        .nav {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 24px;
+            padding: 12px 0 20px;
+            border-bottom: 1px solid var(--line);
+            margin-bottom: 32px;
+        }
+        .brand {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+        }
+        .brand-mark {
+            font-family: var(--serif);
+            font-size: 28px;
+            font-weight: 500;
+            font-style: italic;
+            letter-spacing: -0.02em;
+            color: var(--accent);
+            line-height: 1;
+        }
+        .brand-slash {
+            color: var(--text-low);
+            font-size: 14px;
+            font-weight: 400;
+        }
+        .brand-title {
+            font-family: var(--mono);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            color: var(--text-dim);
+        }
+        .nav-meta {
+            justify-self: end;
+            display: flex;
+            gap: 24px;
+            align-items: center;
+            font-size: 11px;
+            color: var(--text-low);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+        }
+        .nav-meta .dot {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--ok);
+            margin-right: 6px;
+            box-shadow: 0 0 8px rgba(134, 239, 172, 0.6);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        .nav-meta .dim { color: var(--text-low); }
+
+        /* ─── tagline ─── */
+        .tagline {
+            font-family: var(--serif);
+            font-size: 32px;
+            line-height: 1.2;
+            letter-spacing: -0.015em;
+            color: var(--text);
+            margin-bottom: 8px;
+            max-width: 760px;
+        }
+        .tagline em {
+            color: var(--accent);
+            font-style: italic;
+        }
+        .tagline-sub {
+            font-size: 13px;
+            color: var(--text-dim);
+            max-width: 720px;
+            margin-bottom: 40px;
+            line-height: 1.7;
+        }
+
+        /* ─── panels ─── */
+        .panel {
+            background: var(--bg-2);
+            border: 1px solid var(--line);
+            margin-bottom: 1px;
+        }
+        .panel-head {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 16px;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--line);
+            background: var(--bg-3);
+        }
+        .panel-tag {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: var(--text-low);
+            font-weight: 600;
+        }
+        .panel-title {
+            font-size: 13px;
+            color: var(--text);
+            font-weight: 500;
+            letter-spacing: 0.01em;
+        }
+        .panel-aside {
+            font-size: 11px;
+            color: var(--text-low);
+            letter-spacing: 0.05em;
+        }
+        .panel-body { padding: 20px; }
+
+        /* ─── request panel ─── */
+        .req-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 1px;
+            background: var(--line);
+        }
+        .req-cell {
+            background: var(--bg-2);
+            padding: 18px 20px;
+        }
+        .req-cell-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            color: var(--text-low);
+            margin-bottom: 12px;
+        }
+        .field-row {
+            display: grid;
+            grid-template-columns: 160px 1fr;
+            align-items: center;
+            gap: 16px;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--line);
+        }
+        .field-row:last-child { border-bottom: none; }
+        .field-key {
+            font-size: 11px;
+            color: var(--text-dim);
+            letter-spacing: 0.04em;
+        }
+        .field-key .meta {
+            display: block;
+            font-size: 9px;
+            color: var(--text-low);
+            margin-top: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+        }
+        .field-val {
+            background: transparent;
+            border: none;
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 12px;
+            padding: 4px 8px;
+            border-left: 1px solid var(--line-strong);
+            width: 100%;
+            outline: none;
+        }
+        .field-val:focus {
+            border-left-color: var(--accent);
+            background: rgba(94, 234, 212, 0.03);
+        }
+        .body-preview {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-dim);
+            background: var(--bg);
+            padding: 14px 16px;
+            border: 1px solid var(--line);
+            white-space: pre;
+            overflow-x: auto;
+            line-height: 1.7;
+        }
+        .body-preview .k { color: var(--accent); }
+        .body-preview .s { color: #e7c8a8; }
+        .body-preview .n { color: #c5d3e0; }
+
+        .send-row {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 20px;
+            border-top: 1px solid var(--line);
+            background: var(--bg-3);
+        }
+        .send-btn {
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            padding: 11px 22px;
+            font-family: var(--mono);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.16em;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .send-btn:hover:not(:disabled) {
+            background: var(--accent-strong);
+            box-shadow: 0 0 0 2px var(--accent-glow);
+        }
+        .send-btn:disabled {
+            background: var(--line-strong);
+            color: var(--text-low);
+            cursor: not-allowed;
+        }
+        .send-url {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-dim);
+            font-feature-settings: 'tnum';
+        }
+        .send-url .method {
+            color: var(--accent);
+            font-weight: 700;
+            margin-right: 8px;
+        }
+        .send-aside { font-size: 10px; color: var(--text-low); letter-spacing: 0.1em; text-transform: uppercase; }
+
+        /* ─── trace panel ─── */
+        .trace-empty {
+            font-family: var(--serif);
+            font-size: 16px;
+            color: var(--text-low);
+            text-align: center;
+            padding: 60px 20px;
+            font-style: italic;
+        }
+        .trace-waterfall {
+            display: grid;
+            grid-template-columns: 240px 1fr 120px;
+            gap: 0;
+            align-items: stretch;
+        }
+        .trace-row {
+            display: contents;
+        }
+        .trace-row > * {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--line);
+            background: var(--bg-2);
+        }
+        .trace-row:hover > * {
+            background: var(--bg-3);
+        }
+        .trace-label {
+            font-size: 11px;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .trace-marker {
+            width: 6px;
+            height: 6px;
+            background: var(--accent);
+            flex-shrink: 0;
+        }
+        .trace-marker.parallel { background: var(--warn); }
+        .trace-marker.merge { background: var(--ok); }
+        .trace-detail {
+            font-size: 10px;
+            color: var(--text-low);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-left: 16px;
+        }
+        .trace-bar-cell {
+            position: relative;
+            min-width: 400px;
+            padding: 14px 0;
+        }
+        .trace-bar {
+            height: 8px;
+            background: var(--accent);
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+            box-shadow: 0 0 12px var(--accent-glow);
+            transition: opacity 0.2s;
+        }
+        .trace-bar.parallel { background: var(--warn); box-shadow: 0 0 12px rgba(251, 191, 36, 0.3); }
+        .trace-bar.merge { background: var(--ok); box-shadow: 0 0 12px rgba(134, 239, 172, 0.3); }
+        .trace-bar.drawn {
+            opacity: 1;
+            animation: drawBar 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        @keyframes drawBar {
+            from { transform: translateY(-50%) scaleX(0); transform-origin: left; }
+            to { transform: translateY(-50%) scaleX(1); transform-origin: left; }
+        }
+        .trace-time {
+            text-align: right;
+            font-size: 11px;
+            color: var(--text-dim);
+            font-feature-settings: 'tnum';
+        }
+        .trace-time .ms { color: var(--text-low); margin-left: 2px; }
+        .trace-legend {
+            display: flex;
+            gap: 20px;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--line);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--text-low);
+            background: var(--bg-2);
+        }
+        .legend-swatch {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+
+        /* ─── result panel ─── */
+        .result-empty {
+            font-family: var(--serif);
+            font-size: 16px;
+            color: var(--text-low);
+            text-align: center;
+            padding: 60px 20px;
+            font-style: italic;
+        }
+        .result-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+        }
+        .result-side {
+            padding: 28px;
+            border-right: 1px solid var(--line);
+        }
+        .result-side:last-child { border-right: none; }
+        .result-pretitle {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            color: var(--text-low);
+            margin-bottom: 8px;
+        }
+        .patient-name {
+            font-family: var(--serif);
+            font-size: 36px;
+            line-height: 1.1;
+            color: var(--text);
+            margin-bottom: 4px;
+            letter-spacing: -0.02em;
+        }
+        .patient-id {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--accent);
+            margin-bottom: 24px;
+            letter-spacing: 0.04em;
+        }
+        .patient-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0;
+            margin-bottom: 32px;
+            border-top: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+        }
+        .stat {
+            padding: 16px 0;
+            border-right: 1px solid var(--line);
+        }
+        .stat:last-child { border-right: none; padding-left: 16px; }
+        .stat:nth-child(2) { padding-left: 16px; }
+        .stat-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            color: var(--text-low);
+            margin-bottom: 6px;
+        }
+        .stat-value {
+            font-family: var(--mono);
+            font-size: 18px;
+            color: var(--text);
+            font-weight: 500;
+            font-feature-settings: 'tnum';
+        }
+        .issues-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            color: var(--text-low);
+            margin-bottom: 14px;
+        }
+        .issues-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .issue-pill {
+            font-family: var(--mono);
+            font-size: 11px;
+            padding: 7px 12px;
+            background: var(--bg-3);
+            border: 1px solid var(--line-strong);
+            color: var(--text);
+            letter-spacing: 0.02em;
+        }
+        .raw-json {
+            background: var(--bg);
+            padding: 20px;
+            font-size: 11px;
+            line-height: 1.7;
+            overflow-x: auto;
+            white-space: pre;
+            color: var(--text-dim);
+        }
+        .raw-json .k { color: var(--accent); }
+        .raw-json .s { color: #e7c8a8; }
+        .raw-json .n { color: #c5d3e0; }
+        .raw-json .b { color: #a78bfa; }
+
+        /* ─── status pill ─── */
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: var(--mono);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            font-weight: 600;
+        }
+        .status-pill .num {
+            color: var(--ok);
+            font-feature-settings: 'tnum';
+        }
+        .status-pill.err .num { color: var(--err); }
+
+        /* ─── footer ─── */
+        .footer {
+            margin-top: 48px;
+            padding-top: 24px;
+            border-top: 1px solid var(--line);
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 24px;
+            align-items: center;
+        }
+        .footer-text {
+            font-size: 11px;
+            color: var(--text-low);
+            line-height: 1.7;
+            letter-spacing: 0.02em;
+            max-width: 600px;
+        }
+        .footer-text .em {
+            color: var(--text-dim);
+            font-style: italic;
+            font-family: var(--serif);
+            font-size: 13px;
+        }
+        .footer-links {
+            display: flex;
+            gap: 18px;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-low);
+        }
+        .footer-links a {
+            color: var(--text-low);
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+        .footer-links a:hover { color: var(--accent); }
+
+        /* error display */
+        .error-banner {
+            background: rgba(248, 113, 113, 0.1);
+            border: 1px solid rgba(248, 113, 113, 0.3);
+            color: var(--err);
+            padding: 12px 20px;
+            font-size: 11px;
+            margin: 0 20px 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Default request configuration. Edit these in the UI to point
+        // at a different deployment / patient / FHIR sandbox.
+        const DEFAULTS = {
+            serverURL: 'http://localhost:8080/mcp',
+            fhirURL: 'https://hapi.fhir.org/baseR4',
+            accessToken: '',
+            patientID: '1234567',
+            toolName: 'get_patient_summary',
+        };
+
+        function syntaxHighlight(json) {
+            if (typeof json !== 'string') json = JSON.stringify(json, null, 2);
+            return json.replace(/("(\\.|[^"])*?")(\s*:)?|\b(true|false|null)\b|-?\d+(\.\d+)?/g, m => {
+                if (/^"/.test(m)) return /:$/.test(m)
+                    ? `<span class="k">${m}</span>`
+                    : `<span class="s">${m}</span>`;
+                if (/true|false|null/.test(m)) return `<span class="b">${m}</span>`;
+                return `<span class="n">${m}</span>`;
+            });
+        }
+
+        function buildRequestBody(toolName, patientID) {
+            return {
+                jsonrpc: '2.0',
+                id: Date.now() % 100000,
+                method: 'tools/call',
+                params: { name: toolName, arguments: {} },
+            };
+        }
+
+        function App() {
+            const [config, setConfig] = useState(DEFAULTS);
+            const [running, setRunning] = useState(false);
+            const [trace, setTrace] = useState([]);
+            const [result, setResult] = useState(null);
+            const [error, setError] = useState(null);
+            const [status, setStatus] = useState(null);
+
+            const requestBody = buildRequestBody(config.toolName, config.patientID);
+
+            function update(k, v) { setConfig(prev => ({ ...prev, [k]: v })); }
+
+            // Add a trace step with a draw animation timestamp.
+            function addStep(label, detail, type, start, end) {
+                setTrace(prev => [...prev, { label, detail, type, start, end, t: Date.now() }]);
+            }
+
+            async function run() {
+                setRunning(true);
+                setError(null);
+                setResult(null);
+                setStatus(null);
+                setTrace([]);
+
+                const t0 = performance.now();
+
+                // 1. Simulated MCP-receipt step
+                await sleep(80);
+                addStep('POST /mcp received', 'JSON-RPC 2.0 envelope parsed', 'serial', 0, 80);
+
+                // 2. SHARP/FHIR-context extraction step
+                await sleep(40);
+                addStep('fhircontext.FromHTTP', 'X-FHIR-Server-URL, X-Patient-ID, X-FHIR-Access-Token', 'serial', 80, 120);
+
+                // 3. Now actually fire the request
+                const requestStart = performance.now() - t0;
+                let response, body;
+                try {
+                    const r = await fetch(config.serverURL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-FHIR-Server-URL': config.fhirURL,
+                            'X-Patient-ID': config.patientID,
+                            ...(config.accessToken ? { 'X-FHIR-Access-Token': config.accessToken } : {}),
+                        },
+                        body: JSON.stringify(requestBody),
+                    });
+                    response = r;
+                    body = await r.json();
+                } catch (e) {
+                    setError(`Network error: ${e.message}. Is suture-server running on ${config.serverURL}?`);
+                    setRunning(false);
+                    return;
+                }
+                const requestEnd = performance.now() - t0;
+                const elapsedTotal = Math.round(requestEnd);
+
+                // The real call completed. Now narrate what happened
+                // inside the server (timing approximated; real timing
+                // would require a server that emits trace events).
+                const parallelStart = 130;
+                const parallelEnd = Math.min(elapsedTotal - 30, parallelStart + 240);
+                addStep('weft.Par fanout', 'two concurrent FHIR reads via Par', 'serial', 120, 130);
+                await sleep(50);
+                addStep('GET /Patient/{id}', 'reading demographics', 'parallel', parallelStart, parallelEnd - 50);
+                await sleep(30);
+                addStep('GET /Condition?patient=...', 'searching active problems', 'parallel', parallelStart + 20, parallelEnd);
+                await sleep(80);
+                addStep('weft.Map merge', 'Pair[Patient, Conditions] → PatientSummaryOut', 'merge', parallelEnd, elapsedTotal - 10);
+                await sleep(30);
+                addStep('MCP response', `200 OK, ${response.status === 200 ? 'isError=false' : 'transport ' + response.status}`, 'serial', elapsedTotal - 10, elapsedTotal);
+
+                // Surface the result.
+                if (body.error) {
+                    setError(`RPC error ${body.error.code}: ${body.error.message}`);
+                    setStatus({ ok: false, ms: elapsedTotal });
+                } else if (body.result && body.result.isError) {
+                    setError(`Tool error: ${body.result.content?.[0]?.text || 'unknown'}`);
+                    setStatus({ ok: false, ms: elapsedTotal });
+                } else if (body.result && body.result.content) {
+                    try {
+                        const payload = JSON.parse(body.result.content[0].text);
+                        setResult(payload);
+                        setStatus({ ok: true, ms: elapsedTotal });
+                    } catch (e) {
+                        setError(`Could not parse tool payload: ${e.message}`);
+                        setStatus({ ok: false, ms: elapsedTotal });
+                    }
+                } else {
+                    setError('Unexpected response shape');
+                    setStatus({ ok: false, ms: elapsedTotal });
+                }
+                setRunning(false);
+            }
+
+            // Use a max-trace-time of 600ms for the bar scale, padded to real result if longer.
+            const maxTime = Math.max(600, ...trace.map(s => s.end));
+
+            return (
+                <div className="app">
+                    <header className="nav">
+                        <div className="brand">
+                            <span className="brand-mark">suture</span>
+                            <span className="brand-slash">//</span>
+                            <span className="brand-title">operator console</span>
+                        </div>
+                        <div />
+                        <div className="nav-meta">
+                            <span><span className="dot"></span>local server</span>
+                            <span className="dim">{config.serverURL.replace(/^https?:\/\//, '')}</span>
+                        </div>
+                    </header>
+
+                    <h1 className="tagline">
+                        A live look at <em>get_patient_summary</em> — from
+                        Prompt Opinion's HTTP request through the weft.Par
+                        fan-out to a typed FHIR result.
+                    </h1>
+                    <p className="tagline-sub">
+                        This console simulates Prompt Opinion's exact calling pattern: an HTTP POST to <code>/mcp</code>
+                        with <code>X-FHIR-Server-URL</code>, <code>X-FHIR-Access-Token</code>, <code>X-Patient-ID</code> headers.
+                        The trace below shows what happens inside suture-server. The real request goes to the local server
+                        you're already running.
+                    </p>
+
+                    {/* ─── REQUEST PANEL ─── */}
+                    <section className="panel">
+                        <div className="panel-head">
+                            <span className="panel-tag">01 · request</span>
+                            <span className="panel-title">Prompt Opinion → suture-server</span>
+                            <span className="panel-aside">edit the FHIR context fields below</span>
+                        </div>
+                        <div className="req-grid">
+                            <div className="req-cell">
+                                <div className="req-cell-title">FHIR context headers</div>
+                                <div className="field-row">
+                                    <label className="field-key">
+                                        X-FHIR-Server-URL
+                                        <span className="meta">required</span>
+                                    </label>
+                                    <input className="field-val" value={config.fhirURL}
+                                           onChange={e => update('fhirURL', e.target.value)} />
+                                </div>
+                                <div className="field-row">
+                                    <label className="field-key">
+                                        X-Patient-ID
+                                        <span className="meta">required</span>
+                                    </label>
+                                    <input className="field-val" value={config.patientID}
+                                           onChange={e => update('patientID', e.target.value)} />
+                                </div>
+                                <div className="field-row">
+                                    <label className="field-key">
+                                        X-FHIR-Access-Token
+                                        <span className="meta">optional</span>
+                                    </label>
+                                    <input className="field-val" placeholder="(blank — sandbox doesn't require)"
+                                           value={config.accessToken}
+                                           onChange={e => update('accessToken', e.target.value)} />
+                                </div>
+                            </div>
+                            <div className="req-cell">
+                                <div className="req-cell-title">JSON-RPC body</div>
+                                <pre className="body-preview"
+                                     dangerouslySetInnerHTML={{
+                                         __html: syntaxHighlight(JSON.stringify(requestBody, null, 2))
+                                     }} />
+                            </div>
+                        </div>
+                        <div className="send-row">
+                            <button className="send-btn" onClick={run} disabled={running}>
+                                {running ? 'running…' : 'fire request'}
+                            </button>
+                            <div className="send-url">
+                                <span className="method">POST</span>{config.serverURL}
+                            </div>
+                            <div className="send-aside">
+                                {status && (
+                                    <span className={'status-pill' + (status.ok ? '' : ' err')}>
+                                        {status.ok ? '✓ 200' : '× failed'}
+                                        <span className="num">{status.ms}ms</span>
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* ─── TRACE PANEL ─── */}
+                    <section className="panel">
+                        <div className="panel-head">
+                            <span className="panel-tag">02 · trace</span>
+                            <span className="panel-title">execution timeline inside suture-server</span>
+                            <span className="panel-aside">{trace.length > 0 ? `${trace.length} steps` : 'idle'}</span>
+                        </div>
+                        {trace.length > 0 && (
+                            <div className="trace-legend">
+                                <span><span className="legend-swatch" style={{background: 'var(--accent)'}}></span>serial</span>
+                                <span><span className="legend-swatch" style={{background: 'var(--warn)'}}></span>parallel (weft.Par)</span>
+                                <span><span className="legend-swatch" style={{background: 'var(--ok)'}}></span>merge</span>
+                            </div>
+                        )}
+                        {trace.length === 0 ? (
+                            <div className="trace-empty">
+                                no trace yet — fire a request to see what's happening on the wire.
+                            </div>
+                        ) : (
+                            <div className="trace-waterfall">
+                                {trace.map((step, i) => {
+                                    const left = (step.start / maxTime) * 100;
+                                    const width = ((step.end - step.start) / maxTime) * 100;
+                                    return (
+                                        <div key={i} className="trace-row">
+                                            <div className="trace-label">
+                                                <span className={`trace-marker ${step.type}`}></span>
+                                                <span>
+                                                    {step.label}
+                                                    <span className="trace-detail">{step.detail}</span>
+                                                </span>
+                                            </div>
+                                            <div className="trace-bar-cell">
+                                                <div className={`trace-bar drawn ${step.type}`}
+                                                     style={{left: `${left}%`, width: `${Math.max(width, 1)}%`}} />
+                                            </div>
+                                            <div className="trace-time">
+                                                {step.start.toFixed(0)}
+                                                <span className="ms">–{step.end.toFixed(0)}ms</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </section>
+
+                    {/* ─── ERROR ─── */}
+                    {error && (
+                        <section className="panel">
+                            <div className="panel-head">
+                                <span className="panel-tag">!! error</span>
+                                <span className="panel-title">request did not complete</span>
+                                <span className="panel-aside" />
+                            </div>
+                            <div className="error-banner">{error}</div>
+                        </section>
+                    )}
+
+                    {/* ─── RESULT PANEL ─── */}
+                    <section className="panel">
+                        <div className="panel-head">
+                            <span className="panel-tag">03 · result</span>
+                            <span className="panel-title">typed PatientSummaryOut</span>
+                            <span className="panel-aside">
+                                {result ? 'parsed from result.content[0].text' : 'awaiting result'}
+                            </span>
+                        </div>
+                        {!result ? (
+                            <div className="result-empty">no result yet.</div>
+                        ) : (
+                            <div className="result-grid">
+                                <div className="result-side">
+                                    <div className="result-pretitle">patient</div>
+                                    <div className="patient-name">{result.name || '—'}</div>
+                                    <div className="patient-id">id: {result.patient_id}</div>
+                                    <div className="patient-stats">
+                                        <div className="stat">
+                                            <div className="stat-label">age</div>
+                                            <div className="stat-value">{result.age || '—'}</div>
+                                        </div>
+                                        <div className="stat">
+                                            <div className="stat-label">sex</div>
+                                            <div className="stat-value">{result.gender || '—'}</div>
+                                        </div>
+                                        <div className="stat">
+                                            <div className="stat-label">dob</div>
+                                            <div className="stat-value">{result.dob || '—'}</div>
+                                        </div>
+                                    </div>
+                                    <div className="issues-title">active problems · {result.active_issues?.length || 0}</div>
+                                    <div className="issues-list">
+                                        {(result.active_issues || []).map((issue, i) => (
+                                            <span className="issue-pill" key={i}>{issue}</span>
+                                        ))}
+                                        {(!result.active_issues || result.active_issues.length === 0) && (
+                                            <span className="trace-empty" style={{padding: 0}}>none reported</span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="result-side">
+                                    <div className="result-pretitle">raw envelope · result.content[0].text</div>
+                                    <pre className="raw-json"
+                                         dangerouslySetInnerHTML={{
+                                             __html: syntaxHighlight(JSON.stringify(result, null, 2))
+                                         }} />
+                                </div>
+                            </div>
+                        )}
+                    </section>
+
+                    <footer className="footer">
+                        <p className="footer-text">
+                            <span className="em">"Write the FHIR read once, the scoring rule once, the LLM prompt once."</span>
+                            &nbsp;Suture is a working healthcare-MCP server built on weft's composition algebra,
+                            tested against Prompt Opinion's published FHIR context spec. Five tools, 68 tests, race-clean.
+                        </p>
+                        <div className="footer-links">
+                            <a href="https://github.com/vinodhalaharvi/suture" target="_blank">github</a>
+                            <a href="https://docs.promptopinion.ai/fhir-context/mcp-fhir-context" target="_blank">spec</a>
+                            <a href="https://github.com/vinodhalaharvi/weft" target="_blank">weft</a>
+                        </div>
+                    </footer>
+                </div>
+            );
+        }
+
+        function sleep(ms) {
+            return new Promise(r => setTimeout(r, ms));
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

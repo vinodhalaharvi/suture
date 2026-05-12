@@ -53,6 +53,15 @@ func HTTPHeadersFrom(ctx context.Context) HTTPHeaders {
 // the relevant headers in the per-request context.Context so tool
 // handlers can read them without depending on http.Request directly.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Allow browser-based clients (like the operator console demo) to
+	// hit us from any origin. The Prompt Opinion platform speaks
+	// server-to-server so it doesn't care about this header, but local
+	// UIs do — and CORS only kicks in for response reads in browsers,
+	// not for curl or server-side fetches.
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "*")
+
 	switch r.Method {
 	case http.MethodPost:
 		s.serveHTTPPost(w, r)
@@ -65,12 +74,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"transport": "http",
 		})
 	case http.MethodOptions:
-		// CORS preflight, if any client needs it. We don't restrict
-		// origins because the platform is the only legitimate caller
-		// and it sends server-to-server requests.
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "*")
+		// CORS preflight — headers set above are sufficient.
 		w.WriteHeader(http.StatusNoContent)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)

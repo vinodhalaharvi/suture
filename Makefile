@@ -9,6 +9,7 @@ all: build test
 build: ## Build all binaries
 	$(GO) build -o bin/suture-server ./cmd/suture-server
 	$(GO) build -o bin/demo ./cmd/demo
+	$(GO) build -o bin/console ./cmd/console
 
 test: ## Run all tests
 	$(GO) test ./...
@@ -37,6 +38,9 @@ demo: build ## Build then run the demo against the public HAPI FHIR sandbox
 
 run: build ## Run suture-server on :8080
 	./bin/suture-server
+
+console: build ## Run the operator console UI on :9000 (also need suture-server running)
+	./bin/console
 
 docker: ## Build the Docker image
 	docker build -t suture-server:latest .
